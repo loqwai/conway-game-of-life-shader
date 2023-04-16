@@ -8,15 +8,15 @@ import { createInitialTexture } from "./createInitialTexture.js";
 export class ConwayGameOfLife {
   /**
    * @param {HTMLCanvasElement} canvas
-   * @param {number} [resolution=16] - The number of pixels per cell.
+   * @param {number} [resolution=16] - number of pixels per cell
    * @param {string} [shaderBaseUrl="./shaders/"] - The path to the shaders. This is relative to the html file that loads this script.
    */
-  constructor(canvas, resolution = 16, shaderBaseUrl = "/src/shaders/") {
+  constructor(canvas, resolution = 8, shaderBaseUrl = "/src/shaders/") {
     resizeCanvasToDisplaySize(canvas);
     this.canvas = canvas;
     this.resolution = resolution;
-    this.numX = Math.floor(canvas.width / resolution);
-    this.numY = Math.floor(canvas.height / resolution);
+    this.numX = Math.floor(this.canvas.width / resolution);
+    this.numY = Math.floor(this.canvas.height / resolution)
     this.numCells = this.numX * this.numY;
     this.bufferSize = this.numCells * 3;
     this.shaderBaseUrl = shaderBaseUrl;
@@ -27,7 +27,7 @@ export class ConwayGameOfLife {
   singleFrame = () => {
     if (!this.running) return;
 
-    // this._compute()
+    this._compute()
     this._render();
     this._swapBuffers();
 
@@ -38,32 +38,51 @@ export class ConwayGameOfLife {
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
     this.gl.bindBuffer(this.gl.TRANSFORM_FEEDBACK_BUFFER, null);
     this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, null);
     this.gl.bindVertexArray(null);
     this.gl.disable(this.gl.RASTERIZER_DISCARD);
   }
 
+  _clear = () => {
+    this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+    this.gl.clearColor(0, 0, 0, 1);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+  }
+
+
   _compute = () => {
-    // this.gl.enable(this.gl.RASTERIZER_DISCARD);
+    this._clear()
+
+    const fb = this.gl.createFramebuffer();
+    tagObject(this.gl, fb, "output texture frambuffer");
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fb);
+    this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, this.state.cellStates.next, 0);
+
+    // Resize our viewport to match the output texture
+    this.gl.viewport(0, 0, this.numX, this.numY);
 
     this.gl.useProgram(this.state.compute.program);
-    this.gl.bindVertexArray(this.state.compute.read.vao);
+    this.gl.bindVertexArray(this.state.compute.vao);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.state.cellStates.current); // input texture
+    this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
+    this.gl.uniform1f(this.state.compute.attribs.resolutionX, 1 / this.numX);
+    this.gl.uniform1f(this.state.compute.attribs.resolutionY, 1 / this.numY);
     this.gl.drawArrays(this.gl.POINTS, 0, this.numCells);
 
+    this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, null, 0);
     this._cleanup()
   }
 
   _render = () => {
-    // clear the screen
-    this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
-    this.gl.clearColor(0, 0, 0, 1);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    this._clear()
 
     // render the cell state texture
     this.gl.useProgram(this.state.render.program);
     this.gl.bindVertexArray(this.state.render.vao);
     this.gl.bindTexture(this.gl.TEXTURE_2D, this.state.cellStates.next);
+    this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
 
     this._cleanup()
@@ -86,7 +105,7 @@ export class ConwayGameOfLife {
     const textureCoordsBuffer = this._createTextureCoordsBuffer()
 
     const { stateTexture, nextStateTexture } = this._createStateTextures(createInitialTexture(this.numX, this.numY))
-    const { computeProgram, computeVao } = await this._createComputeProgram(cellPositions, textureVerticesBuffer, textureCoordsBuffer)
+    const { computeProgram, computeVao, computeAttribs } = await this._createComputeProgram(cellPositions)
     const { renderProgram, renderVao } = await this._createRenderProgram(textureVerticesBuffer, textureCoordsBuffer)
 
     this.state = {
@@ -100,6 +119,7 @@ export class ConwayGameOfLife {
       compute: {
         program: computeProgram,
         vao: computeVao,
+        attribs: computeAttribs,
       },
       render: {
         program: renderProgram,
@@ -155,13 +175,15 @@ export class ConwayGameOfLife {
     this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.R8, this.numX, this.numY, 0, this.gl.RED, this.gl.UNSIGNED_BYTE, data, 0);
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
     this._cleanup();
     return texture;
   }
 
   /**
    * @param {WebGlBuffer} cellPositions 
-   * @returns {Promise<{computeProgram: WebGlProgram, computeVao: WebGlVertexArrayObject}>}
+   * @returns {Promise<{computeProgram: WebGlProgram, computeVao: WebGlVertexArrayObject, computeAttribs: {resolutionX: WebGLUniformLocation, resolutionY: WebGLUniformLocation}}>}
    */
   _createComputeProgram = async (cellPositions) => {
     const computeProgram = await createComputeProgram(this.gl, this.shaderBaseUrl);
@@ -171,8 +193,13 @@ export class ConwayGameOfLife {
     tagObject(this.gl, computeVao, "computeVao")
     bindComputeBuffer(this.gl, computeProgram, computeVao, cellPositions)
 
+    const computeAttribs = {
+      resolutionX: this.gl.getUniformLocation(computeProgram, 'resolutionX'),
+      resolutionY: this.gl.getUniformLocation(computeProgram, 'resolutionY'),
+    }
+
     this._cleanup();
-    return { computeProgram, computeVao }
+    return { computeProgram, computeVao, computeAttribs }
   }
 
   /**

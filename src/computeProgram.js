@@ -33,5 +33,5 @@ export const bindComputeBuffer = (gl, program, vao, cellPositions) => {
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cellPositions);
   gl.enableVertexAttribArray(positionAttrib);
-  gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, toBytes(2), 0);
+  gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0);
 }
