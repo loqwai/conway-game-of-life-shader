@@ -7,5 +7,6 @@ in float inAlive;
 out float outAlive;
 
 void main() {
-    outAlive = inAlive + inPosition.x;
+    outAlive = inPosition.x;
+    outAlive = inAlive;
 }

@@ -3,7 +3,7 @@ import { createShader, toBytes } from "./shaderUtils.js";
 /**
  * @param {WebGL2RenderingContext} gl 
  * @param {string} shaderPathPrefix 
- * @returns {WebGLProgram}
+ * @returns {Promise<WebGLProgram>}
  */
 export const createRenderProgram = async (gl, shaderBaseUrl) => {
   const program = gl.createProgram()
@@ -28,10 +28,15 @@ export const createRenderProgram = async (gl, shaderBaseUrl) => {
  */
 export const bindRenderBuffer = (gl, program, vao, buffer) => {
   const positionAttrib = gl.getAttribLocation(program, "inPosition");
+  const aliveAttrib = gl.getAttribLocation(program, "inAlive");
 
   gl.bindVertexArray(vao);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(positionAttrib);
-  gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, toBytes(1), 0);  // The 1 byte we're skipping is the alive attribute
+  gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, toBytes(3), 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.enableVertexAttribArray(aliveAttrib);
+  gl.vertexAttribPointer(aliveAttrib, 1, gl.FLOAT, false, toBytes(3), toBytes(2));
 }

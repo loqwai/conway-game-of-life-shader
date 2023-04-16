@@ -3,7 +3,7 @@ import { createShader, toBytes } from "./shaderUtils.js";
 /**
  * @param {WebGL2RenderingContext} gl 
  * @param {string} shaderPathPrefix 
- * @returns {WebGLProgram}
+ * @returns {Promize<WebGLProgram>}
  */
 export const createComputeProgram = async (gl, shaderPathPrefix) => {
   const program = gl.createProgram()

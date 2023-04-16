@@ -1,10 +1,10 @@
 #version 300 es
 precision mediump float;
 
-in vec4 vPosition;
+in float vAlive;
 
 out vec4 outColor;
 
 void main() {
-  outColor = vec4(0.00, 0.00, 0.00, 1.0);
+  outColor = vec4(vAlive, vAlive, 1.0, 1.0);
 }

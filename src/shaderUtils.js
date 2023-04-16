@@ -25,3 +25,16 @@ export const createShader = async (gl, type, url) => {
  * @returns {number}
  */
 export const toBytes = (n) => n * Float32Array.BYTES_PER_ELEMENT
+
+/**
+ * Tags webgl objects with names so that the debug helper extension can display them
+ * @param {WebGL2RenderingContext} gl
+ * @param {WebGLTexture | WebGLProgram | WebGLVertexArrayObject | WebGLFramebuffer} obj
+ * @param {string} tag
+ * @returns
+ */
+export const tagObject = (gl, obj, tag) => {
+  const ext = gl.getExtension('GMAN_debug_helper');
+  if (!ext) return;
+  ext.tagObject(obj, tag);
+}
