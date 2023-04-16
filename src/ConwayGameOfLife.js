@@ -1,4 +1,4 @@
-import { initAutoResize } from "./resize.js";
+import { initAutoResize, resizeCanvasToDisplaySize } from "./resize.js";
 import { createInitialData } from "./createInitialData.js";
 import { createComputeProgram, bindComputeBuffer } from "./computeProgram.js";
 import { createRenderProgram, bindRenderBuffer } from "./renderProgram.js";
@@ -7,13 +7,16 @@ import { tagObject } from "./shaderUtils.js";
 export class ConwayGameOfLife {
   /**
    * @param {HTMLCanvasElement} canvas
-   * @param {number} [dimensions=16] - The number of rows and columns in the grid. Must be a power of 2.
+   * @param {number} [resolution=16] - The number of pixels per cell.
    * @param {string} [shaderBaseUrl="./shaders/"] - The path to the shaders. This is relative to the html file that loads this script.
    */
-  constructor(canvas, dimensions = 16, shaderBaseUrl = "/src/shaders/") {
+  constructor(canvas, resolution = 32, shaderBaseUrl = "/src/shaders/") {
+    resizeCanvasToDisplaySize(canvas);
     this.canvas = canvas;
-    this.dimensions = dimensions;
-    this.numCells = dimensions * dimensions;
+    this.resolution = resolution;
+    this.numX = Math.floor(canvas.width / resolution);
+    this.numy = Math.floor(canvas.height / resolution);
+    this.numCells = this.numX * this.numy;
     this.shaderBaseUrl = shaderBaseUrl;
     this.running = false;
     this.gl = this.canvas.getContext("webgl2");
@@ -49,6 +52,7 @@ export class ConwayGameOfLife {
 
     // render the cells
     this.gl.useProgram(this.state.render.program);
+    this.gl.uniform1f(this.state.render.attribs.pointSize, this.resolution);
     this.gl.bindVertexArray(this.state.render.read.vao);
     this.gl.drawArrays(this.gl.POINTS, 0, this.numCells);
   }
@@ -64,9 +68,9 @@ export class ConwayGameOfLife {
 
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 
-    const { stateBuffer, nextStateBuffer } = this._createStateBuffers(this.gl, createInitialData(this.dimensions))
+    const { stateBuffer, nextStateBuffer } = this._createStateBuffers(this.gl, createInitialData(this.numX, this.numy))
     const { computeProgram, readComputeVao, writeComputeVao } = await this._createComputeProgram(stateBuffer, nextStateBuffer)
-    const { renderProgram, readRenderVao, writeRenderVao } = await this._createRenderProgram(stateBuffer, nextStateBuffer)
+    const { renderProgram, readRenderVao, writeRenderVao, renderAttribs } = await this._createRenderProgram(stateBuffer, nextStateBuffer)
 
     this.state = {
       compute: {
@@ -82,6 +86,7 @@ export class ConwayGameOfLife {
       },
       render: {
         program: renderProgram,
+        attribs: renderAttribs,
         read: {
           vao: readRenderVao,
           buffer: nextStateBuffer
@@ -136,6 +141,11 @@ export class ConwayGameOfLife {
     return { computeProgram, readComputeVao, writeComputeVao }
   }
 
+  /**
+   * @param {WebGlBuffer} stateBuffer 
+   * @param {WebGlBuffer} nextStateBuffer 
+   * @returns {Promise<{computeProgram: WebGlProgram, writeComputeVao: WebGlVertexArrayObject, readComputeVao: WebGlVertexArrayObject, renderAttribs: {pointSize: number}}>}
+   */
   _createRenderProgram = async (stateBuffer, nextStateBuffer) => {
     const renderProgram = await createRenderProgram(this.gl, this.shaderBaseUrl);
     tagObject(this.gl, renderProgram, "renderProgram")
@@ -146,7 +156,11 @@ export class ConwayGameOfLife {
     const writeRenderVao = this.gl.createVertexArray()
     bindRenderBuffer(this.gl, renderProgram, writeRenderVao, stateBuffer)
 
-    return { renderProgram, readRenderVao, writeRenderVao }
+    const renderAttribs = {
+      pointSize: this.gl.getUniformLocation(renderProgram, "uPointSize"),
+    }
+
+    return { renderProgram, readRenderVao, writeRenderVao, renderAttribs }
   }
 
 }

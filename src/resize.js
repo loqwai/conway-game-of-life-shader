@@ -28,7 +28,7 @@ const onResize = (entries, canvasToDisplaySizeMap) => {
   }
 }
 
-const resizeCanvasToDisplaySize = (canvas) => {
+export const resizeCanvasToDisplaySize = (canvas) => {
   const canvasToDisplaySizeMap = new Map([[canvas, [canvas.clientWidth, canvas.clientHeight]]]);
 
   // Get the size the browser is displaying the canvas in device pixels.

@@ -1,16 +1,17 @@
 /**
- * @param {number} dimensions 
+ * @param {number} numX 
+ * @param {number} numY 
  * @returns {number[]}
  */
-export const createInitialData = (dimensions) => {
-  const initialData = new Array(dimensions * dimensions * 3).fill(0);
+export const createInitialData = (numX, numY) => {
+  const initialData = new Array(numX * numY * 3).fill(0);
 
-  for (let y = 0; y < dimensions; y++) {
-    const yNorm = ((y / (dimensions - 1)) * 2) - 1;
+  for (let y = 0; y < numY; y++) {
+    const yNorm = ((y / (numY - 1)) * 2) - 1;
 
-    for (let x = 0; x < dimensions; x++) {
-      const i = y * dimensions + x;
-      const xNorm = ((x / (dimensions - 1)) * 2) - 1;
+    for (let x = 0; x < numX; x++) {
+      const i = y * numX + x;
+      const xNorm = ((x / (numX - 1)) * 2) - 1;
 
       const alive = Math.random() > 0.5 ? 1 : 0;
 

@@ -12,6 +12,6 @@ void main() {
   // pass the inAlive value to the fragment shader
   vAlive = inAlive;
 
-  gl_PointSize = 40.0;
+  gl_PointSize = uPointSize;
   gl_Position = vec4(inPosition, 0.0, 1.0);
 }
