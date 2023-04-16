@@ -24,14 +24,14 @@ export const createComputeProgram = async (gl, shaderPathPrefix) => {
  * @param {WebGL2RenderingContext} gl 
  * @param {WebGLProgram} program 
  * @param {WebGLVertexArrayObject} vao 
- * @param {WebGLBuffer} buffer 
+ * @param {WebGLBuffer} cellPositions 
  */
-export const bindComputeBuffer = (gl, program, vao, buffer) => {
+export const bindComputeBuffer = (gl, program, vao, cellPositions) => {
   const positionAttrib = gl.getAttribLocation(program, "inPosition");
 
   gl.bindVertexArray(vao);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bindBuffer(gl.ARRAY_BUFFER, cellPositions);
   gl.enableVertexAttribArray(positionAttrib);
   gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, toBytes(2), 0);
 }
