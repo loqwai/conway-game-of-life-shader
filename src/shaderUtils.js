@@ -38,3 +38,24 @@ export const tagObject = (gl, obj, tag) => {
   if (!ext) return;
   ext.tagObject(obj, tag);
 }
+
+
+/**
+ * Tags webgl objects with names so that the debug helper extension can display them
+ * @param {WebGL2RenderingContext} gl
+ * @param {WebGLBuffer} buffer
+ * @param {string} label
+ * @param {number} bufferSize
+ */
+export function printResults(gl, buffer, label, bufferSize) {
+  const results = new Float32Array(bufferSize);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.getBufferSubData(
+    gl.ARRAY_BUFFER,
+    0,    // byte offset into GPU buffer,
+    results,
+  );
+  // print the results
+  console.log(`${label}: ${results}`);
+  gl.bindBuffer(gl.ARRAY_BUFFER, null)
+}

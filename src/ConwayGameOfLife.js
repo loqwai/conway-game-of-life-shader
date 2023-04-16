@@ -2,7 +2,7 @@ import { initAutoResize, resizeCanvasToDisplaySize } from "./resize.js";
 import { createInitialData } from "./createInitialData.js";
 import { createComputeProgram, bindComputeBuffer } from "./computeProgram.js";
 import { createRenderProgram, bindRenderBuffer } from "./renderProgram.js";
-import { tagObject } from "./shaderUtils.js";
+import { printResults, tagObject } from "./shaderUtils.js";
 
 export class ConwayGameOfLife {
   /**
@@ -10,13 +10,14 @@ export class ConwayGameOfLife {
    * @param {number} [resolution=16] - The number of pixels per cell.
    * @param {string} [shaderBaseUrl="./shaders/"] - The path to the shaders. This is relative to the html file that loads this script.
    */
-  constructor(canvas, resolution = 32, shaderBaseUrl = "/src/shaders/") {
+  constructor(canvas, resolution = 16, shaderBaseUrl = "/src/shaders/") {
     resizeCanvasToDisplaySize(canvas);
     this.canvas = canvas;
     this.resolution = resolution;
     this.numX = Math.floor(canvas.width / resolution);
-    this.numy = Math.floor(canvas.height / resolution);
-    this.numCells = this.numX * this.numy;
+    this.numY = Math.floor(canvas.height / resolution);
+    this.numCells = this.numX * this.numY;
+    this.bufferSize = this.numCells * 3;
     this.shaderBaseUrl = shaderBaseUrl;
     this.running = false;
     this.gl = this.canvas.getContext("webgl2");
@@ -24,24 +25,37 @@ export class ConwayGameOfLife {
 
   singleFrame = () => {
     if (!this.running) return;
-    // requestAnimationFrame(this.singleFrame); // registering this first thing so we can safely early return
+    requestAnimationFrame(this.singleFrame); // registering this first thing so we can safely early return
 
-    // this._compute()
+    this._compute()
     this._render();
     this._swapBuffers();
   }
 
+  _cleanup = () => {
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+    this.gl.bindBuffer(this.gl.TRANSFORM_FEEDBACK_BUFFER, null);
+    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+    this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, null);
+    this.gl.bindVertexArray(null);
+    this.gl.disable(this.gl.RASTERIZER_DISCARD);
+  }
+
   _compute = () => {
+    this.gl.enable(this.gl.RASTERIZER_DISCARD);
     this.gl.useProgram(this.state.compute.program);
 
     // bind cell data
-    this.gl.bindVertexArray(this.state.compute.read.vao);
-    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, this.state.compute.write.buffer);
+    this.gl.bindVertexArray(this.state.compute.read.vao); // input
+    this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, this.state.compute.write.tf); // output
+    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, this.state.compute.write.buffer); // output
 
     // run the compute shader
     this.gl.beginTransformFeedback(this.gl.POINTS);
     this.gl.drawArrays(this.gl.POINTS, 0, this.numCells);
     this.gl.endTransformFeedback();
+
+    this._cleanup()
   }
 
   _render = () => {
@@ -55,11 +69,18 @@ export class ConwayGameOfLife {
     this.gl.uniform1f(this.state.render.attribs.pointSize, this.resolution);
     this.gl.bindVertexArray(this.state.render.read.vao);
     this.gl.drawArrays(this.gl.POINTS, 0, this.numCells);
+
+    this._cleanup()
   }
 
   _swapBuffers = () => {
-    [this.state.compute.read, this.state.compute.write] = [this.state.compute.write, this.state.compute.read];
-    [this.state.render.read, this.state.render.write] = [this.state.render.write, this.state.render.read];
+    const computeTmp = this.state.compute.read;
+    this.state.compute.read = this.state.compute.write;
+    this.state.compute.write = computeTmp;
+
+    const renderTmp = this.state.render.read;
+    this.state.render.read = this.state.render.write;
+    this.state.render.write = renderTmp;
   }
 
   start = async () => {
@@ -68,8 +89,8 @@ export class ConwayGameOfLife {
 
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 
-    const { stateBuffer, nextStateBuffer } = this._createStateBuffers(this.gl, createInitialData(this.numX, this.numy))
-    const { computeProgram, readComputeVao, writeComputeVao } = await this._createComputeProgram(stateBuffer, nextStateBuffer)
+    const { stateBuffer, nextStateBuffer } = this._createStateBuffers(this.gl, createInitialData(this.numX, this.numY))
+    const { computeProgram, readComputeVao, writeComputeVao, readComputeTF, writeComputeTF } = await this._createComputeProgram(stateBuffer, nextStateBuffer)
     const { renderProgram, readRenderVao, writeRenderVao, renderAttribs } = await this._createRenderProgram(stateBuffer, nextStateBuffer)
 
     this.state = {
@@ -77,11 +98,13 @@ export class ConwayGameOfLife {
         program: computeProgram,
         read: {
           vao: readComputeVao,
-          buffer: stateBuffer
+          buffer: stateBuffer,
+          tf: readComputeTF,
         },
         write: {
           vao: writeComputeVao,
-          buffer: nextStateBuffer
+          buffer: nextStateBuffer,
+          tf: writeComputeTF,
         },
       },
       render: {
@@ -138,7 +161,16 @@ export class ConwayGameOfLife {
     const writeComputeVao = this.gl.createVertexArray()
     bindComputeBuffer(this.gl, computeProgram, writeComputeVao, nextStateBuffer)
 
-    return { computeProgram, readComputeVao, writeComputeVao }
+    const readComputeTF = this.gl.createTransformFeedback();
+    this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, readComputeTF);
+    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, stateBuffer);
+
+    const writeComputeTF = this.gl.createTransformFeedback();
+    this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, writeComputeTF);
+    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, nextStateBuffer);
+
+    this._cleanup();
+    return { computeProgram, readComputeVao, writeComputeVao, readComputeTF, writeComputeTF }
   }
 
   /**
@@ -160,6 +192,7 @@ export class ConwayGameOfLife {
       pointSize: this.gl.getUniformLocation(renderProgram, "uPointSize"),
     }
 
+    this._cleanup()
     return { renderProgram, readRenderVao, writeRenderVao, renderAttribs }
   }
 

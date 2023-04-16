@@ -14,6 +14,7 @@ export const createInitialData = (numX, numY) => {
       const xNorm = ((x / (numX - 1)) * 2) - 1;
 
       const alive = Math.random() > 0.5 ? 1 : 0;
+      // const alive = 1;
 
       const ix = i * 3;
       const iy = ix + 1;

@@ -6,4 +6,4 @@ const main = () => {
   window.conway = conway;
 }
 
-setTimeout(main, 100);
+main();

@@ -13,7 +13,7 @@ export const createComputeProgram = async (gl, shaderPathPrefix) => {
 
   gl.transformFeedbackVaryings(
     program,
-    ["outAlive"],
+    ["outPosition", "outAlive"],
     gl.INTERLEAVED_ATTRIBS,
   )
 
@@ -40,9 +40,9 @@ export const bindComputeBuffer = (gl, program, vao, buffer) => {
 
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(positionAttrib);
-  gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, 0, 0);
+  gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, toBytes(3), 0);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(aliveAttrib);
-  gl.vertexAttribPointer(aliveAttrib, 1, gl.FLOAT, false, 0, toBytes(2));
+  gl.vertexAttribPointer(aliveAttrib, 1, gl.FLOAT, false, toBytes(3), toBytes(2));
 }
