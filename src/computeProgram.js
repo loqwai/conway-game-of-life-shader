@@ -11,12 +11,6 @@ export const createComputeProgram = async (gl, shaderPathPrefix) => {
   gl.attachShader(program, await createShader(gl, gl.VERTEX_SHADER, `${shaderPathPrefix}/compute-vertex.glsl`))
   gl.attachShader(program, await createShader(gl, gl.FRAGMENT_SHADER, `${shaderPathPrefix}/compute-fragment.glsl`))
 
-  gl.transformFeedbackVaryings(
-    program,
-    ["outPosition", "outAlive"],
-    gl.INTERLEAVED_ATTRIBS,
-  )
-
   gl.linkProgram(program);
 
   const status = gl.getProgramParameter(program, gl.LINK_STATUS);
@@ -34,15 +28,10 @@ export const createComputeProgram = async (gl, shaderPathPrefix) => {
  */
 export const bindComputeBuffer = (gl, program, vao, buffer) => {
   const positionAttrib = gl.getAttribLocation(program, "inPosition");
-  const aliveAttrib = gl.getAttribLocation(program, "inAlive");
 
   gl.bindVertexArray(vao);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(positionAttrib);
-  gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, toBytes(3), 0);
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.enableVertexAttribArray(aliveAttrib);
-  gl.vertexAttribPointer(aliveAttrib, 1, gl.FLOAT, false, toBytes(3), toBytes(2));
+  gl.vertexAttribPointer(positionAttrib, 2, gl.FLOAT, false, toBytes(2), 0);
 }

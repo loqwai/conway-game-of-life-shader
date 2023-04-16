@@ -1,5 +1,5 @@
 import { initAutoResize, resizeCanvasToDisplaySize } from "./resize.js";
-import { createInitialData } from "./createInitialData.js";
+import { createCells } from "./createCells.js";
 import { createComputeProgram, bindComputeBuffer } from "./computeProgram.js";
 import { createRenderProgram, bindRenderBuffer } from "./renderProgram.js";
 import { printResults, tagObject } from "./shaderUtils.js";
@@ -42,18 +42,11 @@ export class ConwayGameOfLife {
   }
 
   _compute = () => {
-    this.gl.enable(this.gl.RASTERIZER_DISCARD);
+    // this.gl.enable(this.gl.RASTERIZER_DISCARD);
+
     this.gl.useProgram(this.state.compute.program);
-
-    // bind cell data
-    this.gl.bindVertexArray(this.state.compute.read.vao); // input
-    this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, this.state.compute.write.tf); // output
-    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, this.state.compute.write.buffer); // output
-
-    // run the compute shader
-    this.gl.beginTransformFeedback(this.gl.POINTS);
+    this.gl.bindVertexArray(this.state.compute.read.vao);
     this.gl.drawArrays(this.gl.POINTS, 0, this.numCells);
-    this.gl.endTransformFeedback();
 
     this._cleanup()
   }
@@ -89,8 +82,8 @@ export class ConwayGameOfLife {
 
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 
-    const { stateBuffer, nextStateBuffer } = this._createStateBuffers(this.gl, createInitialData(this.numX, this.numY))
-    const { computeProgram, readComputeVao, writeComputeVao, readComputeTF, writeComputeTF } = await this._createComputeProgram(stateBuffer, nextStateBuffer)
+    const { stateBuffer, nextStateBuffer } = this._createStateBuffers(this.gl, createCells(this.numX, this.numY))
+    const { computeProgram, readComputeVao, writeComputeVao } = await this._createComputeProgram(stateBuffer, nextStateBuffer)
     const { renderProgram, readRenderVao, writeRenderVao, renderAttribs } = await this._createRenderProgram(stateBuffer, nextStateBuffer)
 
     this.state = {
@@ -99,12 +92,10 @@ export class ConwayGameOfLife {
         read: {
           vao: readComputeVao,
           buffer: stateBuffer,
-          tf: readComputeTF,
         },
         write: {
           vao: writeComputeVao,
           buffer: nextStateBuffer,
-          tf: writeComputeTF,
         },
       },
       render: {
@@ -131,17 +122,17 @@ export class ConwayGameOfLife {
   /**
    * create two buffers. One for the current state, one for the next state. We will swap them each frame.
    * @param {WebGl2RenderingContext} gl
-   * @param {number[]} initialData
+   * @param {number[]} initialCells
    * @returns {{stateBuffer: WebGlBuffer, nextStateBuffer: WebGlBuffer}}
    */
-  _createStateBuffers = (gl, initialData) => {
+  _createStateBuffers = (gl, initialCells) => {
     const stateBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, stateBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(initialData), gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(initialCells), gl.DYNAMIC_DRAW);
 
     const nextStateBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, nextStateBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(initialData), gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(initialCells), gl.DYNAMIC_DRAW);
 
     return { stateBuffer, nextStateBuffer }
   }
@@ -161,16 +152,8 @@ export class ConwayGameOfLife {
     const writeComputeVao = this.gl.createVertexArray()
     bindComputeBuffer(this.gl, computeProgram, writeComputeVao, nextStateBuffer)
 
-    const readComputeTF = this.gl.createTransformFeedback();
-    this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, readComputeTF);
-    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, stateBuffer);
-
-    const writeComputeTF = this.gl.createTransformFeedback();
-    this.gl.bindTransformFeedback(this.gl.TRANSFORM_FEEDBACK, writeComputeTF);
-    this.gl.bindBufferBase(this.gl.TRANSFORM_FEEDBACK_BUFFER, 0, nextStateBuffer);
-
     this._cleanup();
-    return { computeProgram, readComputeVao, writeComputeVao, readComputeTF, writeComputeTF }
+    return { computeProgram, readComputeVao, writeComputeVao }
   }
 
   /**

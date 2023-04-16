@@ -2,15 +2,10 @@
 precision highp float;
 
 in vec2 inPosition;
-in float inAlive;
 
-out vec2 outPosition;
-out float outAlive;
+out vec2 vPosition;
 
 void main() {
-    gl_PointSize = 30.0;
+    vPosition = inPosition;
     gl_Position = vec4(inPosition, 0.0, 1.0);
-
-    outPosition = inPosition;
-    outAlive = inAlive;
 }
