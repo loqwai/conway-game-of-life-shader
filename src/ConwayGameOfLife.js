@@ -11,7 +11,7 @@ export class ConwayGameOfLife {
    * @param {number} [resolution=16] - number of pixels per cell
    * @param {string} [shaderBaseUrl="./shaders/"] - The path to the shaders. This is relative to the html file that loads this script.
    */
-  constructor(canvas, resolution = 8, shaderBaseUrl = "/src/shaders/") {
+  constructor(canvas, resolution = 1, shaderBaseUrl = "/src/shaders/") {
     resizeCanvasToDisplaySize(canvas);
     this.canvas = canvas;
     this.resolution = resolution;
