@@ -1,7 +1,7 @@
 import { ConwayGameOfLife } from "./ConwayGameOfLife.js";
 
 const main = () => {
-  const conway = new ConwayGameOfLife(document.querySelector("#canvas"), 1, "./src/shaders/");
+  const conway = new ConwayGameOfLife(document.querySelector("#canvas"), undefined, "./src/shaders/");
   conway.start();
   window.conway = conway;
 }

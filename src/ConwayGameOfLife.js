@@ -11,7 +11,7 @@ export class ConwayGameOfLife {
    * @param {number} [resolution=16] - number of pixels per cell
    * @param {string} [shaderBaseUrl="./shaders/"] - The path to the shaders. This is relative to the html file that loads this script.
    */
-  constructor(canvas, resolution = 1, shaderBaseUrl = 'https://raw.githubusercontent.com/loqwai/conway-game-of-life-shader/main/src/shaders') {
+  constructor(canvas, resolution = 16, shaderBaseUrl = 'https://raw.githubusercontent.com/loqwai/conway-game-of-life-shader/main/src/shaders') {
     resizeCanvasToDisplaySize(canvas);
     this.canvas = canvas;
     this.resolution = resolution;
@@ -22,6 +22,27 @@ export class ConwayGameOfLife {
     this.shaderBaseUrl = shaderBaseUrl;
     this.running = false;
     this.gl = this.canvas.getContext("webgl2");
+    this.resolutionMultiplier = 1
+
+    this.underPopulationLimit = 2;
+    this.overPopulationLimit = 3;
+    this.numNeighborsToReproduce = 3;
+  }
+
+  setResolutionMultiplier = (multiplier) => {
+    this.resolutionMultiplier = multiplier
+  }
+
+  setUnderPopulationLimit = (limit) => {
+    this.underPopulationLimit = limit
+  }
+
+  setOverPopulationLimit = (limit) => {
+    this.overPopulationLimit = limit
+  }
+
+  setNumNeighborsToReproduce = (num) => {
+    this.numNeighborsToReproduce = num
   }
 
   singleFrame = () => {
@@ -67,8 +88,11 @@ export class ConwayGameOfLife {
     this.gl.bindVertexArray(this.state.compute.vao);
     this.gl.bindTexture(this.gl.TEXTURE_2D, this.state.cellStates.current); // input texture
     this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
-    this.gl.uniform1f(this.state.compute.attribs.resolutionX, 1 / this.numX);
-    this.gl.uniform1f(this.state.compute.attribs.resolutionY, 1 / this.numY);
+    this.gl.uniform1f(this.state.compute.attribs.resolutionX, this.resolutionMultiplier / this.numX);
+    this.gl.uniform1f(this.state.compute.attribs.resolutionY, this.resolutionMultiplier / this.numY);
+    this.gl.uniform1f(this.state.compute.attribs.underPopulationLimit, this.underPopulationLimit);
+    this.gl.uniform1f(this.state.compute.attribs.overPopulationLimit, this.overPopulationLimit);
+    this.gl.uniform1f(this.state.compute.attribs.numNeighborsToReproduce, this.numNeighborsToReproduce);
     this.gl.drawArrays(this.gl.POINTS, 0, this.numCells);
 
     this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, null, 0);
@@ -177,12 +201,13 @@ export class ConwayGameOfLife {
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+    // this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_R, this.gl.CLAMP_TO_EDGE);
     this._cleanup();
     return texture;
   }
 
   /**
-   * @param {WebGlBuffer} cellPositions 
+   * @param {WebGlBuffer} cellPositions
    * @returns {Promise<{computeProgram: WebGlProgram, computeVao: WebGlVertexArrayObject, computeAttribs: {resolutionX: WebGLUniformLocation, resolutionY: WebGLUniformLocation}}>}
    */
   _createComputeProgram = async (cellPositions) => {
@@ -196,6 +221,9 @@ export class ConwayGameOfLife {
     const computeAttribs = {
       resolutionX: this.gl.getUniformLocation(computeProgram, 'resolutionX'),
       resolutionY: this.gl.getUniformLocation(computeProgram, 'resolutionY'),
+      underPopulationLimit: this.gl.getUniformLocation(computeProgram, 'underPopulationLimit'),
+      overPopulationLimit: this.gl.getUniformLocation(computeProgram, 'overPopulationLimit'),
+      numNeighborsToReproduce: this.gl.getUniformLocation(computeProgram, 'numNeighborsToReproduce'),
     }
 
     this._cleanup();

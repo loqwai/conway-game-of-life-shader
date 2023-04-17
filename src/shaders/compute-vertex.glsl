@@ -5,6 +5,10 @@ uniform sampler2D cellStates;
 uniform float resolutionX;
 uniform float resolutionY;
 
+uniform float underPopulationLimit;
+uniform float overPopulationLimit;
+uniform float numNeighborsToReproduce;
+
 in vec2 inPosition;
 
 out vec4 vColor;
@@ -32,13 +36,13 @@ void main() {
     float sum = up + down + left + right + upLeft + upRight + downLeft + downRight;
 
     if (current == 1.0) {
-        if (sum < 2.0 || 3.0 < sum) {
+        if (sum < underPopulationLimit || overPopulationLimit < sum) {
             vColor = vec4(0.0);
         } else {
             vColor = vec4(1.0);
         }
     } else {
-        if (sum == 3.0) {
+        if (sum == numNeighborsToReproduce) {
             vColor = vec4(1.0);
         } else {
             vColor = vec4(0.0);
@@ -46,6 +50,7 @@ void main() {
     }
 
 
+    // vColor = vec4(1.0);
     gl_PointSize = 1.0;
     gl_Position = vec4(inPosition, 0.0, 1.0);
 }
